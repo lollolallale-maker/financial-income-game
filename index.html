@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#263a8b">
+<link rel="manifest" href="./manifest.webmanifest">
+<title>금융소득 분류 게임</title>
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,"Malgun Gothic",sans-serif;background:#f5f7fb;color:#172033;min-height:100vh}
+  .wrap{max-width:1100px;margin:auto;padding:24px}
+  header{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:18px}
+  h1{font-size:26px;margin:0}
+  .stats{display:flex;gap:10px;flex-wrap:wrap}
+  .pill{background:white;border:1px solid #dfe4ee;border-radius:999px;padding:8px 14px;font-weight:700}
+  .progress{height:8px;background:#e4e8f0;border-radius:8px;overflow:hidden;margin-bottom:22px}
+  .bar{height:100%;width:0%;background:#5267e8;transition:.3s}
+  .arena{background:white;border:1px solid #e0e5ef;border-radius:22px;padding:24px;min-height:420px;position:relative;overflow:hidden}
+  .question{text-align:center;margin:4px 0 18px;color:#697386;font-size:14px}
+  .card-area{min-height:145px;display:flex;justify-content:center;align-items:center}
+  .card{width:min(560px,92%);padding:24px;border-radius:18px;background:#fff;box-shadow:0 12px 30px rgba(40,50,80,.12);border:1px solid #dfe4ee;text-align:center;font-size:23px;font-weight:800;cursor:grab;user-select:none;touch-action:none;transition:transform .15s,opacity .15s}
+  .card small{display:block;font-size:13px;font-weight:500;color:#7a8394;margin-top:10px}
+  .bins{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:18px}
+  .bin{min-height:145px;border:2px dashed #b8c1d3;border-radius:18px;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;transition:.15s}
+  .bin strong{font-size:22px}
+  .bin span{font-size:13px;color:#7a8394;margin-top:7px}
+  .bin.over{transform:scale(1.02);border-style:solid;background:#f6f8ff}
+  .feedback{text-align:center;min-height:45px;padding-top:14px;font-weight:800;font-size:18px}
+  .source{display:none;text-align:center;margin:10px auto 0;max-width:680px;padding:18px;border-radius:16px;background:#f8f9fc;border:1px solid #e3e7ef}
+  .source button{margin-top:12px;border:0;border-radius:10px;padding:10px 18px;background:#263a8b;color:white;font-weight:800;cursor:pointer}
+  .choices{display:none;max-width:760px;margin:18px auto 0;grid-template-columns:repeat(3,1fr);gap:10px}
+  .choices button{border:1px solid #d5dbe7;background:white;color:#172033;border-radius:12px;padding:15px 8px;font-weight:800;cursor:pointer}
+  .choices button:hover{background:#f4f6ff}
+  .choices button:disabled{opacity:.55;cursor:default}
+  .start{display:flex;justify-content:center;margin-top:20px}
+  .primary{border:0;background:#263a8b;color:white;border-radius:12px;padding:13px 24px;font-size:16px;font-weight:800;cursor:pointer}
+  .result{display:none;text-align:center;padding:55px 20px}
+  .result h2{font-size:32px;margin:0 0 10px}
+  .result p{color:#687286}
+  .mistakes{text-align:left;max-width:720px;margin:25px auto}
+  .mistake{background:#f8f9fc;border:1px solid #e1e5ed;border-radius:12px;padding:12px;margin:8px 0}
+  @media(max-width:650px){.bins{grid-template-columns:1fr}.choices{grid-template-columns:1fr}.arena{padding:16px}.card{font-size:19px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>💰 금융소득 분류 게임</h1>
+    <div class="stats">
+      <div class="pill">문제 <span id="num">0</span>/5</div>
+      <div class="pill">점수 <span id="score">0</span></div>
+    </div>
+  </header>
+  <div class="progress"><div class="bar" id="bar"></div></div>
+
+  <section class="arena" id="game">
+    <div class="question">카드를 드래그해서 알맞은 과세구분에 놓으세요.</div>
+    <div class="card-area" id="cardArea"></div>
+
+    <div class="bins">
+      <div class="bin" data-kind="비과세">
+        <strong>🟦 비과세</strong><span>소득세를 부과하지 않음</span>
+      </div>
+      <div class="bin" data-kind="분리과세">
+        <strong>🟧 분리과세</strong><span>종합소득에 합산하지 않고 별도로 과세</span>
+      </div>
+    </div>
+
+    <div class="feedback" id="feedback"></div>
+
+    <div class="source" id="source">
+      <div id="sourceText"></div>
+      <div class="choices" id="choices">
+        <button data-law="소득세법">소득세법</button>
+        <button data-law="조세특례제한법">조세특례제한법</button>
+        <button data-law="금융실명거래 및 비밀보장에 관한 법률">금융실명법</button>
+      </div>
+      <div id="rateBox" style="display:none;text-align:center;margin-top:16px">
+        <div style="font-weight:800;margin-bottom:8px">적용 세율은?</div>
+        <div style="display:flex;gap:8px;justify-content:center;align-items:center">
+          <input id="rateInput" type="number" inputmode="decimal" min="0" step="0.1"
+            placeholder="예: 14" style="width:150px;padding:13px;border:1px solid #cfd6e3;border-radius:10px;font-size:16px;color:#172033;text-align:center;background:#fff">
+          <span style="font-weight:800">%</span>
+          <button id="rateCheck" class="primary" style="padding:11px 18px">확인</button>
+        </div>
+      </div>
+      <button id="next" class="primary" style="display:none;margin-top:12px">다음 문제 →</button>
+    </div>
+
+    <div class="start"><button id="start" class="primary">게임 시작</button></div>
+  </section>
+
+  <section class="result" id="result">
+    <h2 id="resultTitle"></h2>
+    <p id="resultText"></p>
+    <div class="mistakes" id="mistakes"></div>
+    <button class="primary" onclick="location.reload()">다시 하기</button>
+  </section>
+</div>
+
+<script>
+const questions = [
+  {name:"재형저축에서 발생한 이자·배당소득", kind:"비과세", law:"조세특례제한법", rate:null,
+   explain:"재형저축의 이자소득·배당소득은 요건을 충족하면 비과세됩니다. (조특법 제91조의14)"},
+  {name:"세금우대종합저축에서 발생한 이자·배당소득", kind:"분리과세", law:"조세특례제한법", rate:9,
+   explain:"요건을 충족한 세금우대종합저축은 9% 세율을 적용하고 종합소득과세표준에 합산하지 않습니다. (조특법 제89조)"},
+  {name:"비실명 금융자산에서 발생한 이자·배당소득", kind:"분리과세", law:"금융실명거래 및 비밀보장에 관한 법률", rate:45,
+   explain:"비실명 금융자산의 이자·배당은 금융실명법상 특례 세율이 적용되는 분리과세 대상입니다."},
+  {name:"이자·배당소득 합계가 2천만원 이하이고 원천징수된 일반 금융소득", kind:"분리과세", law:"소득세법", rate:14,
+   explain:"일반 이자·배당소득은 2천만원 이하이면서 원천징수된 경우 종합소득과세표준에 합산하지 않습니다. (소득세법 제14조)"},
+  {name:"직장공제회 초과반환금", kind:"분리과세", law:"소득세법", rate:null,
+   explain:"직장공제회 초과반환금은 소득세법상 별도 세액계산 특례가 적용되며 종합소득과세표준에 합산하지 않습니다. (소득세법 제63조·제14조)"}
+];
+
+let order=[], idx=0, score=0, wrong=[], phase="sort";
+
+const $=id=>document.getElementById(id);
+function shuffle(a){return [...a].sort(()=>Math.random()-.5)}
+function startGame(){
+  order=shuffle(questions); idx=0; score=0; wrong=[]; phase="sort";
+  $("start").style.display="none"; $("result").style.display="none"; $("game").style.display="block";
+  load();
+}
+$("start").onclick=startGame;
+
+function load(){
+  $("num").textContent=idx+1; $("score").textContent=score;
+  $("bar").style.width=(idx/questions.length*100)+"%";
+  $("feedback").textContent="";
+  $("source").style.display="none";
+  $("next").style.display="none";
+  $("choices").style.display="none";
+  $("rateBox").style.display="none";
+  $("rateInput").value="";
+  const q=order[idx];
+  const card=document.createElement("div");
+  card.className="card"; card.draggable=true; card.id="dragCard";
+  card.innerHTML=q.name+"<small>이 카드를 알맞은 곳으로 드래그하세요</small>";
+  $("cardArea").innerHTML=""; $("cardArea").appendChild(card);
+  card.addEventListener("dragstart",e=>e.dataTransfer.setData("text/plain","drag"));
+  card.addEventListener("touchstart",touchStart,{passive:false});
+  document.querySelectorAll(".bin").forEach(b=>{
+    b.ondragover=e=>{e.preventDefault();b.classList.add("over")};
+    b.ondragleave=()=>b.classList.remove("over");
+    b.ondrop=e=>{e.preventDefault();b.classList.remove("over");handleSort(b.dataset.kind)};
+  });
+}
+
+function touchStart(e){
+  e.preventDefault();
+  const card=e.currentTarget;
+  const move=ev=>{
+    const t=ev.touches[0], el=document.elementFromPoint(t.clientX,t.clientY);
+    document.querySelectorAll(".bin").forEach(b=>b.classList.toggle("over",b.contains(el)));
+  };
+  const end=ev=>{
+    const t=ev.changedTouches[0], el=document.elementFromPoint(t.clientX,t.clientY);
+    const bin=el?.closest(".bin");
+    document.removeEventListener("touchmove",move);
+    document.removeEventListener("touchend",end);
+    document.querySelectorAll(".bin").forEach(b=>b.classList.remove("over"));
+    if(bin) handleSort(bin.dataset.kind);
+  };
+  document.addEventListener("touchmove",move,{passive:false});
+  document.addEventListener("touchend",end,{passive:false});
+}
+
+function handleSort(kind){
+  if(phase!=="sort") return;
+  phase="law"; const q=order[idx];
+  if(kind===q.kind){
+    score++; $("score").textContent=score;
+    $("feedback").textContent="🔔 딩동댕! 1차 분류 정답!";
+    $("feedback").style.color="#263a8b";
+    showLaw();
+  }else{
+    wrong.push({q,reason:"1차 분류 오답"});
+    $("feedback").textContent="❌ 땡! 다시 한 번 생각해보자.";
+    $("feedback").style.color="#b42318";
+    setTimeout(()=>{showLaw(false)},700);
+  }
+}
+
+function showLaw(correctSort=true){
+  const q=order[idx];
+  $("source").style.display="block";
+  $("sourceText").innerHTML="<strong>"+(correctSort?"좋아요!":"정답은 <u>"+q.kind+"</u>입니다.")+
+    "</strong><br><span style='color:#687286'>이제 근거 법률을 고르세요.</span>";
+  $("choices").style.display="grid";
+  document.querySelectorAll("#choices button").forEach(btn=>{
+    btn.disabled=false; btn.onclick=()=>lawChoice(btn.dataset.law);
+  });
+}
+function lawChoice(law){
+  if(phase!=="law") return;
+  const q=order[idx];
+  document.querySelectorAll("#choices button").forEach(b=>b.disabled=true);
+  if(law===q.law){
+    score++; $("score").textContent=score;
+    $("feedback").textContent="🎉 딩동댕! 근거 법률 정답!";
+    $("feedback").style.color="#087443";
+    if(q.kind==="분리과세" && q.rate!==null){
+      phase="rate";
+      $("sourceText").innerHTML="<strong>좋아요! 이제 적용 세율을 맞혀보세요.</strong>";
+      $("rateBox").style.display="block";
+      $("rateInput").focus();
+      return;
+    }
+  }else{
+    wrong.push({q,reason:"근거 법률 오답"});
+    $("feedback").textContent="❌ 땡! 정답은 "+q.law;
+    $("feedback").style.color="#b42318";
+  }
+  phase="done";
+  $("sourceText").innerHTML="<strong>"+q.explain+"</strong>";
+  $("next").style.display="inline-block";
+}
+
+$("rateCheck").onclick=checkRate;
+$("rateInput").addEventListener("keydown",e=>{if(e.key==="Enter")checkRate()});
+
+function checkRate(){
+  if(phase!=="rate") return;
+  const q=order[idx];
+  const entered=parseFloat($("rateInput").value);
+  if(entered===q.rate){
+    score++; $("score").textContent=score;
+    $("feedback").textContent="🎯 딩동댕! 세율까지 완벽해!";
+    $("feedback").style.color="#087443";
+  }else{
+    wrong.push({q,reason:"세율 오답"});
+    $("feedback").textContent="❌ 땡! 정답 세율은 "+q.rate+"%";
+    $("feedback").style.color="#b42318";
+  }
+  phase="done";
+  $("rateBox").style.display="none";
+  $("sourceText").innerHTML="<strong>"+q.explain+"</strong><br><br>적용 세율: <b>"+q.rate+"%</b>";
+  $("next").style.display="inline-block";
+}
+$("next").onclick=()=>{
+  idx++;
+  if(idx>=questions.length) finish(); else {phase="sort";load();}
+};
+
+function finish(){
+  $("game").style.display="none"; $("result").style.display="block";
+  $("bar").style.width="100%";
+  $("resultTitle").textContent=score>=9?"🏆 완벽해!":score>=7?"👏 잘했어!":"💪 한 번 더 해보자!";
+  $("resultText").textContent=`총 ${questions.length*2}단계 중 ${score}단계 정답`;
+  $("mistakes").innerHTML=wrong.length
+    ? "<h3>복습할 문제</h3>"+wrong.map(x=>`<div class="mistake"><b>${x.q.name}</b><br>정답: ${x.q.kind} → ${x.q.law}<br><small>${x.q.explain}</small></div>`).join("")
+    : "<p>오답 없음! 지금 분류 체계가 잘 잡혀 있어.</p>";
+}
+</script>
+<script>if("serviceWorker" in navigator){navigator.serviceWorker.register("./sw.js").catch(()=>{});}</script>
+</body>
+</html>

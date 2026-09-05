@@ -1,0 +1,10 @@
+{
+  "name": "금융소득 분류 게임",
+  "short_name": "금융소득 게임",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#f5f7fb",
+  "theme_color": "#263a8b",
+  "lang": "ko-KR",
+  "description": "금융소득의 비과세·분리과세 및 근거법률과 세율을 연습하는 게임"
+}
